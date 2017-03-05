@@ -1,0 +1,355 @@
+{
+  "metadata" : {
+    "id" : "46a5cc6a-fbf5-45cc-94a3-0339384dedb5",
+    "name" : "PaytmChallenge",
+    "user_save_timestamp" : "1969-12-31T19:00:00.000Z",
+    "auto_save_timestamp" : "1969-12-31T19:00:00.000Z",
+    "language_info" : {
+      "name" : "scala",
+      "file_extension" : "scala",
+      "codemirror_mode" : "text/x-scala"
+    },
+    "trusted" : true,
+    "sparkNotebook" : null,
+    "customLocalRepo" : null,
+    "customRepos" : null,
+    "customDeps" : null,
+    "customImports" : null,
+    "customArgs" : null,
+    "customSparkConf" : null,
+    "customVars" : null
+  },
+  "cells" : [ {
+    "metadata" : {
+      "id" : "1E0EC02B58114A41994990A15886E0CF"
+    },
+    "cell_type" : "markdown",
+    "source" : "# PayTM Challenge"
+  }, {
+    "metadata" : {
+      "id" : "D37A532854F6455B8412A93431C27844"
+    },
+    "cell_type" : "markdown",
+    "source" : "## Preparation"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "C9B6C67EC3684836BE533C66AD098282"
+    },
+    "cell_type" : "code",
+    "source" : "val spark = sparkSession",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "3FE52847E83F47628299E5ABA8D2020C"
+    },
+    "cell_type" : "markdown",
+    "source" : "Specify datasource path"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "8AF8EA3F231D4DEEA9B477564FA295B0"
+    },
+    "cell_type" : "code",
+    "source" : "val home = sys.env(\"TRAINING_HOME\")\nval datadir = s\"$home/data/\"\nval logfile = \"2015_07_22_mktplace_shop_web_log_sample.log\"",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "FEFF1C248832453E8031DF4BE6933341"
+    },
+    "cell_type" : "markdown",
+    "source" : "Load text into RDD"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "6222ECC2A19E4DA68F8AC62AA46361E8"
+    },
+    "cell_type" : "code",
+    "source" : "val rawRDD = sc.textFile(datadir + logfile)\nrawRDD.count",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "FF1C4D53720740D5A0E17525ED85D7C7"
+    },
+    "cell_type" : "markdown",
+    "source" : "Define function to convert ISO8601 into Epoch time"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "81D616D13CD74E57879D2731DA82FD27"
+    },
+    "cell_type" : "code",
+    "source" : "import java.time.Instant\n\ndef timeStrToLong(timeString:String):Long =\n  Instant.parse(timeString).toEpochMilli();",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "C94140EB54754ED09413342D9744658E"
+    },
+    "cell_type" : "code",
+    "source" : "def v(df:org.apache.spark.sql.DataFrame) = DataFrameWidget.table(df, 25)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "D8F4000BCB7B4340892661F3B3DB2463"
+    },
+    "cell_type" : "markdown",
+    "source" : "Define regexp to extract time, ip, url from log lines"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "65EE4647563A440684046CEA1E2198AD"
+    },
+    "cell_type" : "code",
+    "source" : "val lineRE = \"\"\"(\\S*)\\s\\S*\\s(\\S*):.*(http\\S*).*\"\"\".r",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "C89ECF82584740A088F4563B3B7FD598"
+    },
+    "cell_type" : "markdown",
+    "source" : "Case class to store parsed data"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "75D73A23EE5A4D79935F48A47370E21C"
+    },
+    "cell_type" : "code",
+    "source" : "case class LogRecord(timestamp:Long, ip:String, url:String)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "446145B420664F8C887E735D2B58F539"
+    },
+    "cell_type" : "markdown",
+    "source" : "Parse lines with regular expression"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "5B07489F7F114719A69AF887115667E6"
+    },
+    "cell_type" : "code",
+    "source" : "val parsedRDD = rawRDD.map {\n  case lineRE(time,ip,url) => \n    LogRecord(timeStrToLong(time), ip, url)\n  case badLine => \n    println(s\"Unexpected line: $badLine\")\n    LogRecord(0L, \"\", \"\")\n}\n\nparsedRDD.cache()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "FEBDC34E379E42BF9EF1FBF4A5AE4869"
+    },
+    "cell_type" : "markdown",
+    "source" : "Check parsing results"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "presentation" : {
+        "tabs_state" : "{\n  \"tab_id\": \"#tab202660681-0\"\n}",
+        "pivot_chart_state" : "{\n  \"hiddenAttributes\": [],\n  \"menuLimit\": 200,\n  \"cols\": [],\n  \"rows\": [],\n  \"vals\": [],\n  \"exclusions\": {},\n  \"inclusions\": {},\n  \"unusedAttrsVertical\": 85,\n  \"autoSortUnusedAttrs\": false,\n  \"inclusionsInfo\": {},\n  \"aggregatorName\": \"Count\",\n  \"rendererName\": \"Table\"\n}"
+      },
+      "id" : "82719646AEEB4764BA59345C1902B872"
+    },
+    "cell_type" : "code",
+    "source" : "parsedRDD.take(3).foreach(println)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "5BBA318B79CB4DFC9BF55ABE8B86C80F"
+    },
+    "cell_type" : "markdown",
+    "source" : "Create DataFrame for sessionization"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "6C91D7C5DB7E4438A8118F44280D7051"
+    },
+    "cell_type" : "code",
+    "source" : "val logDF = parsedRDD.toDF.cache()\nlogDF.createOrReplaceTempView(\"log\")",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "D5035301E93E4301BB5909840064E206"
+    },
+    "cell_type" : "markdown",
+    "source" : "Define Spark UDFs we will use in sessionization"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "6FA711E934B14A5485F56B8E9335EE95"
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.functions.udf\n\n//Define Spark UDFs\n\ndef sessionFlag(timeout:Long)=udf((duration:Long) => if (duration > timeout) 1 else 0)\n\ndef sessionName = udf((ip:String, session:Long) => ip + \"_\" + session)\n",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "9FD482928FD046139A56039D951A7DF8"
+    },
+    "cell_type" : "markdown",
+    "source" : "## 1. Sessionize log data"
+  }, {
+    "metadata" : {
+      "id" : "72F994A69C714019A88D553A4C0F0D18"
+    },
+    "cell_type" : "markdown",
+    "source" : "We will use window functions of Spark to sessionize data"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "BF4376F0CB80483F9652CCB816EB06C0"
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.expressions.Window\n\nval timeout = 900000L //15 minutes session timeout\n\n//Define window settings\nval window = Window.partitionBy(\"ip\").orderBy(\"timestamp\")\n\nval lagCol = lag(col(\"timestamp\"), 1).over(window)\n\nval sessionDF = logDF.withColumn(\"prevtime\", lagCol)\n  .withColumn(\"ptime\",when($\"prevtime\".isNull, $\"timestamp\").otherwise(lagCol))\n  .withColumn(\"duration\",$\"timestamp\"-$\"ptime\")\n  .withColumn(\"newsession\", sessionFlag(timeout)($\"duration\"))\n  .withColumn(\"session\", sum($\"newsession\").over(window))\n  .withColumn(\"session_id\",sessionName($\"ip\",$\"session\"))\n  .cache()\n\nsessionDF.createOrReplaceTempView(\"session\")\nsessionDF.count()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "8A57CCBA7A264BCD9E102EFB54C85D33"
+    },
+    "cell_type" : "markdown",
+    "source" : "Sanity check of sessionization result"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "044BC682BB544A318E4E7BAAB00676E0"
+    },
+    "cell_type" : "code",
+    "source" : "v(sessionDF.filter(\"\"\"ip in (\"115.114.78.170\",\"103.15.250.10\")\"\"\"))",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true,
+      "id" : "7F548C1EC84246A2B2F9545E533E4372"
+    },
+    "cell_type" : "markdown",
+    "source" : "## 2. Determine the average session time"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "5F12374121F8492580AED2A2D73FB068"
+    },
+    "cell_type" : "code",
+    "source" : "val sessionLenDF = spark.sql(\"\"\"select max(timestamp)-min(timestamp) as sessionlen, ip, session_id from session group by session_id, ip\"\"\").cache()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "3A6A99D8ADCF46D08B30108893AB7515"
+    },
+    "cell_type" : "code",
+    "source" : "sessionLenDF.limit(10)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "D3033872D17444FD809EAC0359881E06"
+    },
+    "cell_type" : "markdown",
+    "source" : "### Average session time"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "90BE110EE9764D6C80A2E98105B91FD5"
+    },
+    "cell_type" : "code",
+    "source" : "sessionLenDF.select(avg($\"sessionlen\").alias(\"avg_session_time\"))",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "803F7C5B18AF4658825623A41FF70B7C"
+    },
+    "cell_type" : "markdown",
+    "source" : "## 3. Determine unique URL visits per session"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "896D5FB66A254B218386D95D15EA39B4"
+    },
+    "cell_type" : "code",
+    "source" : "val uniqueDF = spark.sql(\"select count(distinct(url)) uniqueurlcount, session_id from session group by session_id\").cache()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "1472FFE5E2194CE782621F55E43795E7"
+    },
+    "cell_type" : "code",
+    "source" : "uniqueDF.sort($\"uniqueurlcount\".desc).limit(10)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true,
+      "id" : "CBA2AD3EFCE4406591307D6DD51FFD22"
+    },
+    "cell_type" : "code",
+    "source" : "Search bots and web crawlers have maximum number of unique URLs per session",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "584F95ED52CA41C68BD907D6DE5E09A3"
+    },
+    "cell_type" : "markdown",
+    "source" : "## 4. Find the most engaged users, ie the IPs with the longest session times"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "4AF8427B6BDF4147932AF776F6C89866"
+    },
+    "cell_type" : "code",
+    "source" : "sessionLenDF.select($\"ip\", $\"session_id\", $\"sessionlen\").sort($\"sessionlen\".desc).limit(10)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "id" : "B8AB7A1D6F03450E8A67011A7C2ADE59"
+    },
+    "cell_type" : "markdown",
+    "source" : "Most engaged users are search bots and web crowlers"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false,
+      "id" : "29BB99DA19EC4A4084A3FF4B29D5F83F"
+    },
+    "cell_type" : "code",
+    "source" : "",
+    "outputs" : [ ]
+  } ],
+  "nbformat" : 4
+}
