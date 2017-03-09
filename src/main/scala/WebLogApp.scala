@@ -23,7 +23,7 @@ object WebLogApp {
     val sampleLength = 5
     //Load raw data
 
-    val rawRDD = sc.textFile(datadir + logfile)
+    val rawRDD = sc.textFile(datadir + logfile).coalesce(10).cache()
     println("rawRDD record count: " + rawRDD.count)
 
 
@@ -37,7 +37,7 @@ object WebLogApp {
         LogRecord(0L, "", "")
     }
 
-    parsedRDD.cache()
+    parsedRDD.coalesce(10).cache()
 
     println("ParsedRDD:")
     parsedRDD.take(sampleLength).foreach(println)
@@ -64,14 +64,14 @@ object WebLogApp {
       .withColumn("newsession", sessionFlag(timeout)($"duration"))
       .withColumn("session", sum($"newsession").over(window))
       .withColumn("session_id", sessionName($"ip", $"session"))
-      .cache()
+      .coalesce(10).cache()
 
     sessionDF.createOrReplaceTempView("session")
     sessionDF.count()
 
     //2. Determine the average session time
 
-    val sessionLenDF = spark.sql("""select max(timestamp)-min(timestamp) as sessionlen, ip, session_id from session group by session_id, ip""").cache()
+    val sessionLenDF = spark.sql("""select max(timestamp)-min(timestamp) as sessionlen, ip, session_id from session group by session_id, ip""").coalesce(10).cache()
 
     println("sessionLenDF:")
     sessionLenDF.limit(sampleLength).collect().foreach(println)
@@ -81,7 +81,7 @@ object WebLogApp {
 
     //3. Determine unique URL visits per session
 
-    val uniqueDF = spark.sql("select count(distinct(url)) uniqueurlcount, session_id from session group by session_id").cache()
+    val uniqueDF = spark.sql("select count(distinct(url)) uniqueurlcount, session_id from session group by session_id").coalesce(10).cache()
 
     println("3. Unique URLs per session:")
     uniqueDF.sort($"uniqueurlcount".desc).limit(sampleLength).collect().foreach(println)
