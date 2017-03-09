@@ -21,9 +21,13 @@ object WebLogApp {
     val datadir = "data/"
     val logfile = "2015_07_22_mktplace_shop_web_log_sample.gz"
 
+    //Load raw data
+
     val rawRDD = sc.textFile(datadir + logfile)
     println("rawRDD" + rawRDD.count)
 
+
+    //Parse raw data into RDD[LogRecord]
 
     val parsedRDD = rawRDD.map {
       case Utils.lineRE(time, ip, url) =>
@@ -42,7 +46,7 @@ object WebLogApp {
     val logDF = parsedRDD.toDF.cache()
     logDF.createOrReplaceTempView("log")
 
-    //Define Spark UDFs
+    // 1. Sessionize log data
 
     def sessionFlag(timeout: Long) = udf((duration: Long) => if (duration > timeout) 1 else 0)
 
@@ -50,8 +54,7 @@ object WebLogApp {
 
     val timeout = 900000L //15 minutes session timeout
 
-    //Define window settings
-    val window = Window.partitionBy("ip").orderBy("timestamp")
+    val window = Window.partitionBy("ip").orderBy("timestamp") //Define window settings
 
     val lagCol = lag(col("timestamp"), 1).over(window)
 
@@ -66,6 +69,8 @@ object WebLogApp {
     sessionDF.createOrReplaceTempView("session")
     sessionDF.count()
 
+    //2. Determine the average session time
+
     val sessionLenDF = spark.sql("""select max(timestamp)-min(timestamp) as sessionlen, ip, session_id from session group by session_id, ip""").cache()
 
     println("sessionLenDF:")
@@ -74,9 +79,13 @@ object WebLogApp {
     println("Avg session time:")
     sessionLenDF.select(avg($"sessionlen").alias("avg_session_time")).collect().foreach(println)
 
+    //3. Determine unique URL visits per session
+
     val uniqueDF = spark.sql("select count(distinct(url)) uniqueurlcount, session_id from session group by session_id").cache()
 
     uniqueDF.sort($"uniqueurlcount".desc).limit(10).collect().foreach(println)
+
+    // 4. Find the most engaged users, ie the IPs with the longest session times
 
     sessionLenDF.select($"ip", $"session_id", $"sessionlen").sort($"sessionlen".desc).limit(10).collect().foreach(println)
 
