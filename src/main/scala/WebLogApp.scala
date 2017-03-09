@@ -1,5 +1,3 @@
-/* SimpleApp.scala */
-
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.expressions.Window
