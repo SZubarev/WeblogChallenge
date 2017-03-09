@@ -19,12 +19,12 @@ object WebLogApp {
 
 
     val datadir = "data/"
-    val logfile = "2015_07_22_mktplace_shop_web_log_sample.gz"
-
+    val logfile = "2015_07_22_mktplace_shop_web_log_sample.log"
+    val sampleLength = 5
     //Load raw data
 
     val rawRDD = sc.textFile(datadir + logfile)
-    println("rawRDD" + rawRDD.count)
+    println("rawRDD record count: " + rawRDD.count)
 
 
     //Parse raw data into RDD[LogRecord]
@@ -40,7 +40,7 @@ object WebLogApp {
     parsedRDD.cache()
 
     println("ParsedRDD:")
-    parsedRDD.take(3).foreach(println)
+    parsedRDD.take(sampleLength).foreach(println)
 
 
     val logDF = parsedRDD.toDF.cache()
@@ -74,20 +74,21 @@ object WebLogApp {
     val sessionLenDF = spark.sql("""select max(timestamp)-min(timestamp) as sessionlen, ip, session_id from session group by session_id, ip""").cache()
 
     println("sessionLenDF:")
-    sessionLenDF.limit(10).collect().foreach(println)
+    sessionLenDF.limit(sampleLength).collect().foreach(println)
 
-    println("Avg session time:")
+    println("2. Average session time:")
     sessionLenDF.select(avg($"sessionlen").alias("avg_session_time")).collect().foreach(println)
 
     //3. Determine unique URL visits per session
 
     val uniqueDF = spark.sql("select count(distinct(url)) uniqueurlcount, session_id from session group by session_id").cache()
 
-    uniqueDF.sort($"uniqueurlcount".desc).limit(10).collect().foreach(println)
+    println("3. Unique URLs per session:")
+    uniqueDF.sort($"uniqueurlcount".desc).limit(sampleLength).collect().foreach(println)
 
     // 4. Find the most engaged users, ie the IPs with the longest session times
-
-    sessionLenDF.select($"ip", $"session_id", $"sessionlen").sort($"sessionlen".desc).limit(10).collect().foreach(println)
+    println("4. Most engaged users (IPs with longest sessions:")
+    sessionLenDF.select($"ip", $"session_id", $"sessionlen").sort($"sessionlen".desc).limit(sampleLength).collect().foreach(println)
 
     spark.stop()
   }
