@@ -10,6 +10,7 @@ object WebLogApp {
     val spark = SparkSession
       .builder()
       .appName("WebLogChallenge")
+      .master("local[*]")
       .getOrCreate()
 
     val sc = spark.sparkContext
